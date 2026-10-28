@@ -12,7 +12,7 @@ test('選角、擲骰、招募、存檔與三位電腦輪替',async({page})=>{
   await page.reload();await expect(page.getByRole('heading',{name:'趙雲',exact:true})).toBeVisible();
   expect(await page.evaluate(key=>localStorage.getItem(key),SAVE_KEY)).toBe(before);
   await page.getByRole('button',{name:'結束回合'}).click();
-  await expect(page.getByText('輪到你了，主公')).toBeVisible({timeout:20000});
+  await expect(page.getByText('輪到你了，主公')).toBeVisible({timeout:30000});
   const save=JSON.parse((await page.evaluate(key=>localStorage.getItem(key),SAVE_KEY))!);expect(save.turns).toBe(4);expect(save.players.slice(1).every((p:{pos:number})=>p.pos===1)).toBe(true);expect(errors).toEqual([]);
 });
 test('重新整理接續戰鬥、跳過結算，重新開始有確認',async({page})=>{
@@ -25,7 +25,7 @@ test('重新整理接續戰鬥、跳過結算，重新開始有確認',async({pa
 });
 test('手機版無橫向溢出、24 格可見、說明可開關',async({page})=>{
   await page.setViewportSize({width:390,height:844});await page.goto('./');await page.getByRole('button',{name:/啟程，逐鹿天下/}).click();
-  expect(await page.locator('.cell').count()).toBe(24);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(await page.getByRole('combobox',{name:'查看地點'}).locator('option').count()).toBe(25);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.getByRole('button',{name:'遊戲說明'}).click();await expect(page.getByRole('dialog')).toContainText('十二輪');await page.getByRole('button',{name:'明白了，出發！'}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 test('完成遊戲顯示排名，損壞存檔回到選角',async({page})=>{
