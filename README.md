@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-本機瀏覽器開啟終端顯示的網址（預設 http://localhost:5173）。若在雲端工作區，請在平台的連接埠／Ports 功能轉送 **5173**，再開啟該平台提供的網址。
+本機瀏覽器開啟終端顯示的網址（預設 http://localhost:5173/sanguo-monopoly/）。若在雲端工作區，請在平台的連接埠／Ports 功能轉送 **5173**，再開啟該平台提供的網址。
 
 ```bash
 npm run build   # TypeScript 檢查與正式版打包到 dist/
@@ -41,3 +41,17 @@ npm run test:e2e # Chromium 真實瀏覽器測試
 - `src/game.test.ts`、`tests/game.pw.ts`：規則測試與瀏覽器整合測試。
 
 第一版使用自製 SVG 山水、CSS 主公肖像與系統 emoji 武將圖示；emoji 外觀依作業系統而異。尚未加入線上多人、土地買賣或跨裝置存檔。
+
+
+## GitHub Pages 自動發布
+
+網站子路徑固定為 `/sanguo-monopoly/`。儲存庫的 **Settings → Pages → Source** 請選擇 **GitHub Actions**。
+
+1. 將部署設定的 Pull Request 合併到 `main`。
+2. 到 **Actions → Deploy game to GitHub Pages** 查看最新執行。
+3. `build` 與 `deploy` 都顯示綠色勾號後，點開 `deploy` 的網站連結，或到 **Settings → Pages → Visit site**。
+4. 預期網址為 https://s10013037-dot.github.io/sanguo-monopoly/ 。首次發布可能需要幾分鐘才可瀏覽。
+
+往後每次更新 `main` 都會自動安裝依賴、執行規則測試、建置並發布 `dist/`。PR 只執行測試與建置，不會部署。也可在 Actions 的 **Run workflow** 選擇 `main` 手動重試。
+
+流程採用 GitHub 官方 Pages Actions，固定至官方範例的完整 commit SHA，並使用 `github-pages` 部署環境與 GitHub 自動提供的權限，不需要設定個人存取權杖。
