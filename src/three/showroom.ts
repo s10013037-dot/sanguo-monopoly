@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ModelKit } from './models';
 import { createCharacter,animateCharacter,type CharacterMotion } from './characters';
 import { type CharacterId } from '../characterCatalog';
+export {preloadLubu} from './lubuAsset';
 import { disposeScene } from './resources';
 export function createShowroom(host:HTMLElement,id:CharacterId,low:boolean,onError:()=>void) {
   const kit=new ModelKit(low?'board':'display');const scene=new T.Scene();scene.background=new T.Color('#e8e8db');
@@ -14,10 +15,15 @@ export function createShowroom(host:HTMLElement,id:CharacterId,low:boolean,onErr
   scene.add(new T.HemisphereLight('#fff7e7','#8792a3',2.25));
   const key=new T.DirectionalLight('#ffeedb',2.2);key.position.set(-3,6,4);key.castShadow=!low;key.shadow.mapSize.set(512,512);key.shadow.camera.left=-2;key.shadow.camera.right=2;key.shadow.camera.top=3;key.shadow.camera.bottom=-2;key.shadow.normalBias=.04;key.shadow.bias=-.0002;scene.add(key);
   const rim=new T.DirectionalLight('#c6e1ed',1.3);rim.position.set(3,3,-3);scene.add(rim);
-  kit.mesh(scene,'cylinder','#5d786c',[0,-.07,0],[.68,.12,.68]);kit.mesh(scene,'cylinder','#d1b777',[0,-.13,0],[.69,.035,.69],true);
+  const podium=kit.mesh(scene,'cylinder','#5d786c',[0,-.07,0],[.68,.12,.68]);const podiumRim=kit.mesh(scene,'cylinder','#d1b777',[0,-.13,0],[.69,.035,.69],true);
   let currentId=id;let modelKit=new ModelKit(low?'board':'display');let figure=createCharacter(modelKit,id);scene.add(figure.root);
   const halo=kit.mesh(scene,'torus','#e1c17b',[0,.015,0],[.53,.53,.53],true);halo.rotation.x=-Math.PI/2;halo.visible=false;
   const floor=kit.box(scene,'#e1e2d5',[0,-.19,0],[100,.1,100]);floor.castShadow=false;
+  const defaultPodium=podium.material,defaultRim=podiumRim.material;
+  const stageRing=new T.Mesh(kit.custom('lubu-stage-ring',()=>new T.TorusGeometry(.59,.006,6,64)),kit.surface('#c39d63','satin-metal'));stageRing.rotation.x=-Math.PI/2;stageRing.position.y=-.006;
+  const extraFill=new T.DirectionalLight('#fff1dc',.7);extraFill.position.set(2,2,4);
+  function styleCharacter(){const lubu=currentId==='lvbu';scene.background=new T.Color(lubu?'#ded8cb':'#e8e8db');controls.minDistance=lubu?.8:2.4;key.shadow.mapSize.set(lubu?1024:512,lubu?1024:512);if(lubu){scene.add(extraFill,stageRing);podium.material=kit.surface('#403b3c');podiumRim.material=kit.surface('#b89557','satin-metal');}else{extraFill.removeFromParent();stageRing.removeFromParent();podium.material=defaultPodium;podiumRim.material=defaultRim;}}
+  styleCharacter();
   let framed=false;
   function frameCharacter(){figure.root.updateMatrixWorld(true);const bounds=new T.Box3().setFromObject(figure.root),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3());const distance=Math.max(size.y,size.x/camera.aspect)/(2*Math.tan(T.MathUtils.degToRad(camera.fov/2)))*1.25;controls.target.set(center.x,center.y,0);camera.position.copy(controls.target).add(new T.Vector3(1.35,.65,3.4).normalize().multiplyScalar(T.MathUtils.clamp(distance,2.7,5)));controls.update();controls.saveState();framed=true;}
   let motion:CharacterMotion='idle';let motionStart=performance.now();let frame=0;let stopped=false;let last=0;let elapsed=0;
@@ -33,11 +39,13 @@ export function createShowroom(host:HTMLElement,id:CharacterId,low:boolean,onErr
       if(motion!=='idle'&&progress>=1){motion='idle';figure.root.position.y=0;halo.visible=false;}
       controls.update();renderer.render(scene,camera);
       renderer.domElement.dataset.character=currentId;renderer.domElement.dataset.motion=motion;
-      renderer.domElement.dataset.pose=JSON.stringify({eyes:figure.eyes.map(e=>e.scale.y),arms:figure.arms.map(a=>a.rotation.x),head:figure.head.rotation.y,spin:figure.rig.rotation.y,vertices:renderer.info.render.triangles,limbs:figure.arms.length+figure.legs.length,camera:camera.position.toArray()});
+      renderer.domElement.dataset.pose=JSON.stringify({eyes:figure.eyes.map(e=>e.scale.y),arms:figure.arms.map(a=>a.rotation.x),head:figure.head.rotation.y,spin:figure.rig.rotation.y,...(currentId==='lvbu'?{legs:figure.legs.map(l=>l.rotation.x),source:figure.root.userData.source,revision:figure.root.userData.artRevision}:{}),vertices:renderer.info.render.triangles,limbs:figure.arms.length+figure.legs.length,camera:camera.position.toArray()});
     }catch{cancelAnimationFrame(frame);onError();}
   }
   frame=requestAnimationFrame(tick);
-  return {setCharacter(nextId:CharacterId){if(nextId===currentId)return;scene.remove(figure.root);disposeScene(figure.root);modelKit.dispose();modelKit=new ModelKit(low?'board':'display');figure=createCharacter(modelKit,nextId);scene.add(figure.root);currentId=nextId;motion='idle';motionStart=performance.now();halo.visible=false;frameCharacter();},play(value:CharacterMotion){motion=value;motionStart=performance.now();},reset(){controls.reset();},zoom(factor:number){camera.position.sub(controls.target).multiplyScalar(factor).clampLength(2.4,6.5).add(controls.target);controls.update();},
+  return {setCharacter(nextId:CharacterId){if(nextId===currentId)return;scene.remove(figure.root);disposeScene(figure.root);modelKit.dispose();modelKit=new ModelKit(low?'board':'display');figure=createCharacter(modelKit,nextId);scene.add(figure.root);currentId=nextId;motion='idle';motionStart=performance.now();halo.visible=false;styleCharacter();frameCharacter();},play(value:CharacterMotion){motion=value;motionStart=performance.now();},reset(){controls.reset();},zoom(factor:number){camera.position.sub(controls.target).multiplyScalar(factor).clampLength(currentId==='lvbu'?.8:2.4,6.5).add(controls.target);controls.update();},
+    view(angle:'front'|'side'|'back'){if(currentId!=='lvbu')return;controls.reset();const distance=camera.position.distanceTo(controls.target);const direction=angle==='front'?new T.Vector3(0,.13,1):angle==='side'?new T.Vector3(1,.13,0):new T.Vector3(0,.13,-1);camera.position.copy(controls.target).addScaledVector(direction.normalize(),distance);controls.update();},
+    face(){if(currentId!=='lvbu')return;controls.target.set(0,.9,.05);camera.position.set(0,.96,1.9);controls.update();},
     dispose(){stopped=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();renderer.domElement.removeEventListener('webglcontextlost',lost);disposeScene(scene);modelKit.dispose();kit.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();}
   };
 }

@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { ModelKit, batchGroup } from './models';
+import {instantiateLubu} from './lubuAsset';
 import { CHARACTERS, type CharacterId } from '../characterCatalog';
 const wristRotation=new T.Quaternion();const wristEuler=new T.Euler();
 export const CHIBI_PROPORTIONS={headCenterY:1.08,headRadiusY:.355,scale:.8} as const;
@@ -59,6 +60,7 @@ function makeWeapon(kit:ModelKit,parent:T.Object3D,id:CharacterId) {
 }
 
 export function createCharacter(kit:ModelKit,id:CharacterId):Figure {
+  if(id==='lvbu')return instantiateLubu(kit);
   const p=CHARACTERS[id];const s=p.silhouette;const root=new T.Group();root.name='character-'+id;
   const rig=new T.Group();rig.name='whole-figure';root.add(rig);const body=new T.Group();body.name='torso';rig.add(body);const head=new T.Group();head.name='head';head.position.y=CHIBI_PROPORTIONS.headCenterY;body.add(head);
   const heavy=s==='heavy'||s==='wild';const width=s==='heavy'?.305:s==='wild'?.285:s==='young'||s==='silver'?.215:.245;
@@ -204,6 +206,8 @@ export function animateCharacter(f:Figure,time:number,motion:CharacterMotion='id
     if(p.silhouette==='commander'){f.arms[0].rotation.x=-1.1*amount;f.head.rotation.y=-.1*amount;}
     if(p.silhouette==='young'){f.arms[1].position.y+=amount*.22;f.arms[1].rotation.z=.5*amount;}
     if(p.silhouette==='heavy'||p.silhouette==='wild')f.body.rotation.z=Math.sin(t*Math.PI*2)*.045*amount;
+    // Lü Bu's larger shoulder plates stay beside the head when the forearm raises the halberd.
+    if(f.id==='lvbu')f.arms[0].position.y=.69+amount*.035;
     f.body.position.y+=amount*.04;f.eyes.forEach(e=>e.scale.x=1+amount*.04);
     if(motion==='recruit'&&!reduced){f.rig.rotation.y=(1-Math.pow(1-t,3))*Math.PI*2;f.rig.position.y=Math.sin(t*Math.PI)*.055;}
   }

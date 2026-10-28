@@ -1,11 +1,16 @@
 import * as T from 'three';
 import { ModelKit } from './models';
 import { createCharacter,animateCharacter } from './characters';
+import {preloadLubu} from './lubuAsset';
 import { disposeScene } from './resources';
 import { type CharacterId } from '../characterCatalog';
 const cache=new Map<CharacterId,string>();const waiting=new Map<CharacterId,{resolve:(s:string)=>void;reject:(e:unknown)=>void;promise:Promise<string>}>();let scheduled=false;
 /** One temporary WebGL context per batch, never one context per card. Only PNG strings are cached. */
 export function getThumbnail(id:CharacterId):Promise<string> {
+  if(id==='lvbu'&&!cache.has(id))return preloadLubu('board').catch(()=>{/* Same authored surface fallback. */}).then(()=>queueThumbnail(id));
+  return queueThumbnail(id);
+}
+function queueThumbnail(id:CharacterId):Promise<string>{
   if(cache.has(id))return Promise.resolve(cache.get(id)!);if(waiting.has(id))return waiting.get(id)!.promise;
   let resolve!:(s:string)=>void,reject!:(e:unknown)=>void;const promise=new Promise<string>((yes,no)=>{resolve=yes;reject=no;});waiting.set(id,{resolve,reject,promise});
   if(!scheduled){scheduled=true;requestAnimationFrame(flush);}return promise;
