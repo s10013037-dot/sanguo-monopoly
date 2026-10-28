@@ -2,3 +2,6 @@
 
 /* Keep the enlarged polearms clear of the stage caption. */
 .showroom-label{top:auto;bottom:19px;left:18px}.showroom-label strong{font-size:20px;letter-spacing:3px;margin-top:6px}.showroom-label span{font-size:9px;letter-spacing:1px}
+
+/* V3.6 controls are scoped to the Lü Bu art prototype. */
+.lubu-view-controls{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}.lubu-view-controls button{flex:1;min-width:68px;padding:8px 5px;background:#eee8d9;border:1px solid #c9b791;border-radius:7px;color:#79643f;font-size:11px}.lubu-gallery .gallery-visual{min-height:535px}.lubu-gallery .pose-controls{gap:4px}.lubu-gallery .pose-controls button{font-size:10px}.lubu-gallery .showroom-label{background:#fff9e4bf;padding:5px 8px;border-radius:7px}.lubu-gallery .showroom-label strong{font-size:17px;margin-top:3px}@media(max-width:760px){.lubu-gallery .gallery-visual{min-height:400px}}
