@@ -24,6 +24,11 @@ export class ModelKit {
     if (!this.materials.has(key)) this.materials.set(key, new T.MeshStandardMaterial({ color, roughness: metal ? .4 : .78, metalness: metal ? .45 : .04 }));
     return this.materials.get(key)!;
   }
+  surface(color:string, finish:'vinyl'|'cloth'|'leather'|'satin-metal'='vinyl') {
+    const key=`${finish}:${color}`;
+    if(!this.materials.has(key))this.materials.set(key,new T.MeshStandardMaterial({color,roughness:finish==='cloth'?.91:finish==='leather'?.76:finish==='satin-metal'?.49:.65,metalness:finish==='satin-metal'?.3:.025}));
+    return this.materials.get(key)!;
+  }
   mesh(parent: T.Object3D, kind: string, color: string, position: number[], scale: number[], metal = false) {
     const mesh = new T.Mesh(this.geometry(kind), this.material(color, metal));
     mesh.position.set(position[0], position[1], position[2]); mesh.scale.set(scale[0], scale[1], scale[2]);

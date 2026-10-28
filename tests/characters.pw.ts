@@ -26,7 +26,7 @@ test('四位專屬武將、通用模型標示、同模型卡片頭像與招募�
     const button=page.getByRole('button',{name:`查看${name}詳細資訊`});await expect(button.locator('img')).toHaveAttribute('src',/^data:image\/png/,{timeout:15000});
     await button.click();const canvas=page.locator('[data-engine="character-showroom"]');await expect(canvas).toHaveAttribute('data-character',id,{timeout:15000});await expect(page.getByRole('dialog')).toContainText(weapon);
     if(id==='zhouyu')await expect(page.getByText('通用模型 · 專屬造型待後續擴充')).toBeVisible();
-    await page.getByRole('button',{name:'招募登場',exact:true}).click();await expect(canvas).toHaveAttribute('data-motion','recruit');await page.getByRole('button',{name:'返回棋局'}).click();
+    await page.getByRole('button',{name:'招募登場',exact:true}).click();await expect(canvas).toHaveAttribute('data-motion','recruit');await expect.poll(async()=>JSON.parse((await canvas.getAttribute('data-pose'))!).spin).toBeGreaterThan(.5);await page.getByRole('button',{name:'返回棋局'}).click();
   }
   expect(await page.evaluate(key=>localStorage.getItem(key),SAVE_KEY)).toBe(before);
 });
