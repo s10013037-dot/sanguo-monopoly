@@ -6,13 +6,15 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 export class ModelKit {
   geometries = new Map<string, T.BufferGeometry>();
   materials = new Map<string, T.MeshStandardMaterial>();
+  constructor(readonly detail: 'board'|'display' = 'board') {}
+  custom(key:string, create:()=>T.BufferGeometry) { if(!this.geometries.has(key))this.geometries.set(key,create());return this.geometries.get(key)!; }
   geometry(kind: string) {
     if (!this.geometries.has(kind)) {
-      const geometry = kind === 'sphere' ? new T.SphereGeometry(1, 16, 12)
+      const geometry = kind === 'sphere' ? new T.SphereGeometry(1, this.detail==='display'?32:16, this.detail==='display'?24:12)
         : kind === 'cone' ? new T.ConeGeometry(1, 1, 6)
-        : kind === 'cylinder' ? new T.CylinderGeometry(1, 1, 1, 12)
+        : kind === 'cylinder' ? new T.CylinderGeometry(1, 1, 1, this.detail==='display'?24:12)
         : kind === 'torus' ? new T.TorusGeometry(1, .09, 6, 32)
-        : new RoundedBoxGeometry(1, 1, 1, 1, .045);
+        : new RoundedBoxGeometry(1, 1, 1, this.detail==='display'?2:1, .065);
       this.geometries.set(kind, geometry);
     }
     return this.geometries.get(kind)!;
@@ -31,81 +33,6 @@ export class ModelKit {
   ball(p: T.Object3D, c: string, xyz: number[], size: number[]) { return this.mesh(p, 'sphere', c, xyz, size); }
   dispose() { this.geometries.forEach(g => g.dispose()); this.materials.forEach(m => m.dispose()); }
 }
-export interface Figure { root: T.Group; body: T.Group; arms: T.Group[]; legs: T.Group[]; cape: T.Mesh }
-const palettes = [
-  ['#469477', '#235a4a', '#e5bd6b', '#253c35'],
-  ['#42658e', '#202c49', '#d9b96c', '#20212e'],
-  ['#d29a45', '#75482d', '#ffdc83', '#6e432b'],
-  ['#8e3d64', '#3e263d', '#d6ac63', '#30232c'],
-];
-export function createFigure(kit: ModelKit, leader: number): Figure {
-  const [robe, dark, gold, hair] = palettes[leader]; const root = new T.Group(); root.name = `hero-${leader}`;
-  const body = new T.Group(); root.add(body);
-  const heavy = leader === 3 ? 1.13 : 1;
-  kit.mesh(body, 'cylinder', dark, [0, .46, 0], [.23 * heavy, .38, .19]);
-  kit.ball(body, robe, [0, .54, 0], [.25 * heavy, .27, .19]);
-  const cape = kit.ball(body, dark, [0, .45, -.18], [.3, .32, .07]); cape.rotation.x = -.15;
-  kit.mesh(body, 'cylinder', gold, [0, .42, 0], [.255 * heavy, .055, .205]);
-  kit.box(body, gold, [0, .43, .207], [.085, .07, .035]);
-  const trim = kit.box(body, gold, [0, .59, .181], [.035, .26, .025]); trim.rotation.z = .35;
-  if (leader !== 0) for (const x of [-.17, .17]) kit.ball(body, gold, [x, .68, .02], [.12, .07, .18]);
-  const arms: T.Group[] = []; const legs: T.Group[] = [];
-  for (const side of [-1, 1]) {
-    const arm = new T.Group(); arm.position.set(side * .28 * heavy, .66, 0); body.add(arm); arms.push(arm);
-    kit.ball(arm, robe, [0, -.11, 0], [.095, .17, .1]);
-    kit.mesh(arm, 'cylinder', gold, [0, -.22, 0], [.09, .05, .09]);
-    kit.ball(arm, '#f6c89b', [0, -.28, .01], [.075, .08, .075]);
-    const leg = new T.Group(); leg.position.set(side * .12, .31, 0); root.add(leg); legs.push(leg);
-    kit.mesh(leg, 'cylinder', dark, [0, -.1, 0], [.075, .19, .07]);
-    kit.ball(leg, '#2c303a', [0, -.23, .035], [.095, .08, .135]);
-    kit.box(leg, gold, [0, -.22, .149], [.11, .025, .015]);
-  }
-  // Large head and small body give a 2–2.5-head-high vinyl-figure silhouette.
-  kit.ball(body, hair, [0, 1.02, -.025], [.35, .35, .3]);
-  kit.ball(body, '#f6d1ac', [0, .99, .047], [.32, .305, .285]);
-  for (const x of [-.32, .32]) kit.ball(body, '#e8b28b', [x, .99, .04], [.055, .09, .065]);
-  for (const x of [-.12, .12]) {
-    kit.ball(body, '#282833', [x, 1.02, .306], [.026, .043, .013]);
-    kit.ball(body, '#ffffff', [x - .007, 1.038, .318], [.009, .012, .006]);
-    const brow = kit.box(body, hair, [x, 1.095, .292], [.09, .018, .025]); brow.rotation.z = x * -1.4;
-    kit.ball(body, '#eeb49d', [x * 1.5, .94, .285], [.05, .025, .008]);
-  }
-  kit.ball(body, '#ecb98e', [0, .975, .33], [.028, .033, .025]);
-  kit.box(body, '#a56458', [0, .897, .31], [.065, .014, .015]);
-  if (leader !== 2) kit.mesh(body, 'cone', hair, [0, .8, .23], [leader === 3 ? .18 : .105, .18, .065]);
-  kit.mesh(body, 'cylinder', dark, [0, 1.255, 0], [.34, .13, .27]);
-  kit.mesh(body, 'cylinder', gold, [0, 1.23, 0], [.35, .035, .28]);
-  if (leader === 0) {
-    kit.box(body, dark, [0, 1.38, 0], [.15, .19, .13]);
-    kit.ball(body, '#9ee0ab', [0, 1.26, .285], [.055, .06, .025]);
-  } else if (leader === 1) {
-    kit.box(body, dark, [0, 1.39, 0], [.27, .2, .19]);
-    kit.box(body, gold, [0, 1.4, .108], [.035, .15, .018]);
-  } else if (leader === 2) {
-    for (const x of [-.23, 0, .23]) kit.mesh(body, 'cone', gold, [x, 1.37, 0], [.09, .18, .07]);
-    kit.ball(body, '#65c5af', [0, 1.27, .28], [.065, .07, .03]);
-  } else {
-    for (const x of [-.16, .16]) { const plume = kit.ball(body, '#ce647d', [x, 1.49, -.025], [.065, .24, .05]); plume.rotation.z = -x * 2; }
-    kit.ball(body, gold, [0, 1.26, .28], [.07, .06, .035]);
-  }
-  // Modelled weapons with hilts, blades and guards, attached to animated hands.
-  const hand = arms[0];
-  const count = leader === 0 ? 2 : 1;
-  for (let i = 0; i < count; i++) {
-    const weapon = new T.Group(); weapon.position.set(i * .12 - .04, -.24, .08); weapon.rotation.z = -.15 + i * .35; hand.add(weapon);
-    kit.mesh(weapon, 'cylinder', dark, [0, -.08, 0], [.024, .16, .024]);
-    kit.box(weapon, gold, [0, .02, 0], [.17, .035, .05]);
-    kit.box(weapon, '#cedee2', [0, .23, 0], [.055, .4, .022]);
-    kit.mesh(weapon, 'cone', '#e4ece8', [0, .46, 0], [.04, .08, .02]);
-  }
-  if (leader === 3) kit.box(hand, gold, [-.04, .22, .08], [.24, .08, .05]);
-  for (const limb of [...arms, ...legs]) batchGroup(limb);
-  const exclude = new Set<T.Object3D>([cape]);
-  for (const limb of [...arms, ...legs]) limb.traverse(o => exclude.add(o));
-  batchGroup(body, exclude);
-  root.scale.setScalar(.83); return { root, body, arms, legs, cape };
-}
-
 export function city(kit: ModelKit, parent: T.Object3D, variant: number, scale = 1) {
   const g = new T.Group(); g.scale.setScalar(scale); parent.add(g);
   const roof = ['#467d74', '#536c98', '#a95646', '#87608b'][variant % 4];
@@ -159,7 +86,7 @@ export function tileDecoration(kit: ModelKit, g: T.Group, kind: string, variant:
   }
 }
 
-/** Merge only direct static children, preserving every animated joint. */
+/** Merge static descendants by material; callers exclude animated joints. */
 export function batchGroup(group: T.Object3D, exclude = new Set<T.Object3D>()) {
   group.updateWorldMatrix(true, true);
   const inverse = group.matrixWorld.clone().invert();
@@ -170,7 +97,12 @@ export function batchGroup(group: T.Object3D, exclude = new Set<T.Object3D>()) {
   });
   for (const [material, meshes] of batches) {
     if (meshes.length < 2) continue;
-    const copies = meshes.map(m => m.geometry.clone().applyMatrix4(inverse.clone().multiply(m.matrixWorld)));
+    const copies = meshes.map(m => {
+      const transformed=m.geometry.clone().applyMatrix4(inverse.clone().multiply(m.matrixWorld));
+      // Extruded weapons are non-indexed, while spheres/tubes are indexed. Normalize before merging.
+      if(transformed.index){const plain=transformed.toNonIndexed();transformed.dispose();return plain;}
+      return transformed;
+    });
     const geometry = mergeGeometries(copies); copies.forEach(g => g.dispose());
     if (!geometry) continue;
     const combined = new T.Mesh(geometry, material); combined.castShadow = meshes.some(m => m.castShadow); combined.receiveShadow = true;

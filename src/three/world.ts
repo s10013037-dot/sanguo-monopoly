@@ -1,7 +1,9 @@
 import * as T from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CELLS, CELL_META, LEADERS, type Game } from '../game';
-import { ModelKit, createFigure, city, tileDecoration, type Figure, batchGroup } from './models';
+import { ModelKit, city, tileDecoration, batchGroup } from './models';
+import { createCharacter, animateCharacter, type Figure } from './characters';
+import { LEADER_IDS, GENERAL_IDS } from '../characterCatalog';
 
 export const STEP_MS = 800;
 export const tilePoint = (i: number) => {
@@ -88,9 +90,12 @@ export function createWorld(host: HTMLElement, initial: Game, options: WorldOpti
   for(const mesh of [trunks,leaves,leafTops]){mesh.castShadow=true;mesh.receiveShadow=true;scene.add(mesh);}
   for(let i=0;i<8;i++)kit.ball(scene,'#a3aa95',[-3.9+(i%4)*2.3,.42,-1.7+Math.floor(i/4)*4.7],[.2,.16,.18]);
   batchGroup(scene, new Set<T.Object3D>([...platforms, ...flags, ...waterHighlights]));
-  const figures: Figure[] = initial.players.map(p=>createFigure(kit,p.leader));
+  const figures: Figure[] = initial.players.map(p=>createCharacter(kit,LEADER_IDS[p.leader]));
   const nameTags=initial.players.map(p=>{const tag=label(LEADERS[p.leader].name,'主公');tag.scale.set(.65,.25,1);tag.renderOrder=7;scene.add(tag);return tag;});
   figures.forEach(f=>scene.add(f.root));
+  const guestPool=new Map<number,Figure>();let recruitGuest:{figure:Figure;start:number;position:T.Vector3}|null=null;
+
+  const playerMarkers=initial.players.map((p,i)=>{const marker=kit.mesh(scene,'torus',LEADERS[p.leader].color,[0,.52,0],[.33,.33,.33],true);marker.rotation.x=-Math.PI/2;marker.castShadow=false;return marker;});
   const ring = kit.mesh(scene,'torus','#ffe293',[0,.53,0],[.7,.7,.7],true);ring.rotation.x=-Math.PI/2;ring.castShadow=false;
   const particles = new T.InstancedMesh(kit.geometry('sphere'), kit.material('#ffdc86',true), 20); particles.visible=false; scene.add(particles);
   const dice=new T.Group();dice.position.set(-3.1,1,3.4);scene.add(dice);
@@ -99,6 +104,7 @@ export function createWorld(host: HTMLElement, initial: Game, options: WorldOpti
   const pips=pipPositions.map(([x,y])=>kit.ball(dice,'#425951',[x,y,.36],[.045,.045,.018]));
   let game=initial;let onStep=options.onStep;let animationKey='';let step: {start:number;from:T.Vector3;to:T.Vector3;index:number;angle:number;called:boolean}|null=null;
   let effectUntil=0;let effectPosition=new T.Vector3();let previousArmy=initial.players.map(p=>p.army.length);
+  let paused=false;let pausedAt=0;let showNames=true;let celebration:{index:number;start:number}|null=null;let previousPhase=initial.phase;let previousGold=initial.players.map(p=>p.gold);
   let follow=false;let stopped=false;let hovered=-1;let pointerDown=new T.Vector2();let elapsed=0;let lastTime=0;let frame=0;
   function figurePosition(index:number,pos=game.players[index].pos){const point=tilePoint(pos);point.x+=(index%2===0?-.39:.39);point.z+=(index<2?-.15:.58);return point;}
   figures.forEach((f,i)=>f.root.position.copy(figurePosition(i)));
@@ -111,7 +117,14 @@ export function createWorld(host: HTMLElement, initial: Game, options: WorldOpti
       animationKey=key;const index=game.active;const from=figurePosition(index);const to=figurePosition(index,(game.players[index].pos+1)%24);
       step={start:performance.now(),from,to,index,angle:Math.atan2(to.x-from.x,to.z-from.z),called:false};
     }else if(game.phase!=='moving'){step=null;animationKey='';figures.forEach((f,i)=>f.root.position.copy(figurePosition(i)));}
-    game.players.forEach((p,i)=>{if(p.army.length>previousArmy[i]){effectPosition.copy(figurePosition(i));effectUntil=performance.now()+1800;} });
+    game.players.forEach((p,i)=>{if(p.army.length>previousArmy[i]){effectPosition.copy(figurePosition(i));effectUntil=performance.now()+2200;
+      const general=p.army[p.army.length-1];
+      if(!guestPool.has(general)){const guest=createCharacter(kit,GENERAL_IDS[general]);guest.root.visible=false;guest.root.scale.setScalar(.65);scene.add(guest.root);guestPool.set(general,guest);}
+      if(recruitGuest)recruitGuest.figure.root.visible=false;
+      const guest=guestPool.get(general)!;guest.root.visible=true;
+      const position=tilePoint(p.pos);position.z-=.4;recruitGuest={figure:guest,start:performance.now(),position};} });
+    if(previousPhase==='battle'&&game.phase==='result'&&game.players[game.active].gold>previousGold[game.active])celebration={index:game.active,start:performance.now()};
+    previousPhase=game.phase;previousGold=game.players.map(p=>p.gold);
     previousArmy=game.players.map(p=>p.army.length);
     const patterns = [[], [[0,0]], [[-.17,.17],[.17,-.17]], [[-.17,.17],[0,0],[.17,-.17]], [[-.17,-.17],[-.17,.17],[.17,-.17],[.17,.17]], [[-.17,-.17],[-.17,.17],[.17,-.17],[.17,.17],[0,0]], [[-.17,-.2],[-.17,0],[-.17,.2],[.17,-.2],[.17,0],[.17,.2]]];
     pips.forEach((pip,i)=>{pip.visible=i<game.dice;const p=patterns[game.dice][i];if(p)pip.position.set(p[0],p[1],.36);});
@@ -128,22 +141,28 @@ export function createWorld(host: HTMLElement, initial: Game, options: WorldOpti
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
   function render(now:number){
     if(stopped)return;frame=requestAnimationFrame(loop);
-    if(document.hidden)return;
+    if(document.hidden||paused)return;
     if(options.low&&now-lastTime<32)return;const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;elapsed+=dt;
     const active=game.active;
     figures.forEach((f,i)=>{
-      const moving=step?.index===i&&game.phase==='moving';let stride=0;
+      const moving=step?.index===i&&game.phase==='moving';let progress=0;
       if(moving&&step){
         const t=T.MathUtils.clamp((now-step.start)/STEP_MS,0,1);f.root.position.lerpVectors(step.from,step.to,t);
         const delta=Math.atan2(Math.sin(step.angle-f.root.rotation.y),Math.cos(step.angle-f.root.rotation.y));f.root.rotation.y+=delta*Math.min(1,dt*15);
-        stride=options.reduced?0:Math.sin(t*Math.PI*4);
+        progress=t;
+        const stride=options.reduced?0:Math.sin(t*Math.PI*4);
         f.root.position.y+=options.reduced?0:Math.abs(stride)*.07+Math.sin(Math.max(0,t-.78)/.22*Math.PI)*.07;
         if(t>=1&&!step.called){step.called=true;f.root.position.copy(step.to);onStep();}
       }else{f.root.position.y=figurePosition(i).y+(options.reduced?0:Math.sin(elapsed*2+i)*.012);}
-      f.arms.forEach((a,j)=>a.rotation.x=stride*.4*(j?1:-1));f.legs.forEach((l,j)=>l.rotation.x=stride*.5*(j?-1:1));
-      f.body.position.y=options.reduced?0:Math.abs(stride)*.025;f.cape.rotation.x=-.15+(options.reduced?0:Math.sin(elapsed*3+i)*.04);
-      nameTags[i].visible=i===active;nameTags[i].position.copy(f.root.position).add(new T.Vector3(0,1.55,0));
+      const victorious=celebration?.index===i&&now-celebration.start<2000;
+      animateCharacter(f,elapsed+i,moving?'walk':victorious?'victory':'idle',moving?progress:victorious?(now-celebration!.start)/2000:0,options.reduced);
+      playerMarkers[i].position.set(f.root.position.x,.53,f.root.position.z);
+      nameTags[i].visible=showNames&&i===active;nameTags[i].position.copy(f.root.position).add(new T.Vector3(0,1.75,0));
     });
+    if(recruitGuest){const progress=(now-recruitGuest.start)/2200;
+      if(progress>=1){recruitGuest.figure.root.visible=false;recruitGuest=null;}
+      else{recruitGuest.figure.root.position.copy(recruitGuest.position);animateCharacter(recruitGuest.figure,elapsed,'recruit',progress,options.reduced);}
+    }
     const point=figures[active].root.position;ring.position.set(point.x,.52,point.z);ring.scale.setScalar(.65+(options.reduced?0:Math.sin(elapsed*3)*.03));
     const battle=game.phase==='battle';(ring.material as T.MeshStandardMaterial).color.set(battle?'#ff7a59':'#ffe293');
     platforms.forEach((p,i)=>{const m=p.material as T.MeshStandardMaterial;m.emissive.set(i===hovered?'#635c26':i===game.players[active].pos?(battle?'#652b1c':'#3b4216'):'#000000');});
@@ -160,8 +179,8 @@ export function createWorld(host: HTMLElement, initial: Game, options: WorldOpti
   function loop(now:number){try{render(now);}catch{cancelAnimationFrame(frame);options.onError();}}
   frame=requestAnimationFrame(loop);
   return {
-    update, focus(){const point=figures[game.active].root.position;const shift=point.clone().sub(controls.target);controls.target.copy(point);camera.position.add(shift);camera.zoom=2.1;camera.updateProjectionMatrix();}, reset(){controls.reset();}, zoom(factor:number){camera.zoom=T.MathUtils.clamp(camera.zoom*factor,.7,2.3);camera.updateProjectionMatrix();}, setFollow(value:boolean){follow=value;},
-    dispose(){stopped=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();renderer.domElement.removeEventListener('webglcontextlost',contextLost);renderer.domElement.removeEventListener('pointermove',pointerMove);renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);const geometries=new Set<T.BufferGeometry>();const materials=new Set<T.Material>();scene.traverse(o=>{if(o instanceof T.Mesh){geometries.add(o.geometry);const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>materials.add(m));}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());sprites.forEach(s=>s.dispose());textures.forEach(t=>t.dispose());kit.dispose();renderer.dispose();renderer.domElement.remove();}
+    update, setNames(value:boolean){showNames=value;}, setPaused(value:boolean){if(value===paused)return;const now=performance.now();if(value){pausedAt=now;}else{const delay=now-pausedAt;if(step)step.start+=delay;if(celebration)celebration.start+=delay;if(recruitGuest)recruitGuest.start+=delay;effectUntil+=delay;lastTime=now;}paused=value;}, focus(){const point=figures[game.active].root.position;const shift=point.clone().sub(controls.target);controls.target.copy(point);camera.position.add(shift);camera.zoom=2.1;camera.updateProjectionMatrix();}, reset(){controls.reset();}, zoom(factor:number){camera.zoom=T.MathUtils.clamp(camera.zoom*factor,.7,2.3);camera.updateProjectionMatrix();}, setFollow(value:boolean){follow=value;},
+    dispose(){stopped=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();renderer.domElement.removeEventListener('webglcontextlost',contextLost);renderer.domElement.removeEventListener('pointermove',pointerMove);renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);const geometries=new Set<T.BufferGeometry>();const materials=new Set<T.Material>();scene.traverse(o=>{if(o instanceof T.Mesh){geometries.add(o.geometry);const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>materials.add(m));}});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());sprites.forEach(s=>s.dispose());textures.forEach(t=>t.dispose());kit.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();}
   };
 }
 export type World = ReturnType<typeof createWorld>;
