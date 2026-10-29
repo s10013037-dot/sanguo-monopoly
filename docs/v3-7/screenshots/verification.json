@@ -1,0 +1,79 @@
+{
+  "revision": "3.7.0",
+  "sha256Matched": true,
+  "engine": "Chromium WebGL / SwiftShader",
+  "productionBase": "/sanguo-monopoly/",
+  "model": "actual GLB",
+  "screenshots": [
+    "hero",
+    "front",
+    "left",
+    "back",
+    "face"
+  ],
+  "screenshotReducedMotion": true,
+  "saveUnchanged": true,
+  "errors": [],
+  "assets": [
+    {
+      "path": "/sanguo-monopoly/assets/index-BdI6FNpp.css",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/index-WRtQDUul.js",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/thumbnails-BW9KE6tq.js",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/resources-Dha0LCWo.js",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/index-BdI6FNpp.css",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/index-WRtQDUul.js",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/thumbnails-BW9KE6tq.js",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/resources-Dha0LCWo.js",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/OrbitControls-LGT91hd5.js",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/world-oegcZWSn.js",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/characters-CuNW3ofm.js",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/GLTFLoader-DKy30UTE.js",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/lubu-board-BKQPGk_9.glb",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/showroom-D3klARE4.js",
+      "status": 200
+    },
+    {
+      "path": "/sanguo-monopoly/assets/lubu-display-0Bbj238N.glb",
+      "status": 200
+    }
+  ]
+}

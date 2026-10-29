@@ -23,8 +23,10 @@ test('真正 WebGL2 棋盤、四個完整模型、分散站位、可旋轉和縮
 test('六點跨轉角：3D 真實位移、交替擺腿、到站後招募與存檔',async({page})=>{
   await page.addInitScript(()=>{Math.random=()=>.99;});await start(page,5);
   const positions:number[]=[];await page.evaluate(()=>{(window as Window&{visited:number[]}).visited=[];let old=5;const timer=setInterval(()=>{const g=JSON.parse(localStorage.getItem('sanguo-monopoly-v1')!);if(g.players[0].pos!==old){old=g.players[0].pos;(window as Window&{visited:number[]}).visited.push(old);}if(g.phase!=='moving'&&g.players[0].pos!==5)clearInterval(timer);},30);});
-  const before=await snapshot(page);await page.getByRole('button',{name:'擲骰子，出發！'}).click();await page.waitForTimeout(350);
-  const during=await snapshot(page);expect(during.moving).toBe(true);expect(during.heroes[0].position).not.toEqual(before.heroes[0].position);expect(Math.abs(during.heroes[0].stride)).toBeGreaterThan(.001);
+  const before=await snapshot(page);await page.getByRole('button',{name:'擲骰子，出發！'}).click();
+  // Software WebGL can still expose the previous frame after a fixed 350 ms delay.
+  // Wait for one rendered frame that proves motion, displacement and leg animation together.
+  await expect.poll(async()=>{const during=await snapshot(page);return during.moving&&JSON.stringify(during.heroes[0].position)!==JSON.stringify(before.heroes[0].position)&&Math.abs(during.heroes[0].stride)>.001;},{timeout:3000,intervals:[50,100,150]}).toBe(true);
   await expect(page.getByRole('button',{name:/行軍中/})).toBeDisabled();
   const mid=JSON.parse((await page.evaluate(key=>localStorage.getItem(key),SAVE_KEY))!);expect(mid.players[0].army).toEqual([1]);
   await expect(page.getByRole('button',{name:'結束回合'})).toBeVisible({timeout:15000});

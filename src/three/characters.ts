@@ -1,11 +1,12 @@
 import * as T from 'three';
 import { ModelKit, batchGroup } from './models';
+import {animatePremiumLubu} from './lubuAnimation';
 import {instantiateLubu} from './lubuAsset';
 import { CHARACTERS, type CharacterId } from '../characterCatalog';
 const wristRotation=new T.Quaternion();const wristEuler=new T.Euler();
 export const CHIBI_PROPORTIONS={headCenterY:1.08,headRadiusY:.355,scale:.8} as const;
-export type CharacterMotion = 'idle'|'walk'|'arrival'|'recruit'|'victory';
-export interface Figure { id:CharacterId;root:T.Group;rig:T.Group;body:T.Group;head:T.Group;arms:T.Group[];legs:T.Group[];eyes:T.Group[];cape:T.Mesh;weapons:T.Group[];grips:T.Group[] }
+export type CharacterMotion = 'idle'|'walk'|'arrival'|'recruit'|'victory'|'attack';
+export interface Figure { id:CharacterId;root:T.Group;rig:T.Group;body:T.Group;head:T.Group;arms:T.Group[];legs:T.Group[];eyes:T.Group[];cape:T.Mesh;weapons:T.Group[];grips:T.Group[];ornaments?:{brows:T.Group[];plumes:T.Group[]} }
 
 function curved(kit:ModelKit,parent:T.Object3D,key:string,points:number[][],radius:number,color:string) {
   const curve=new T.CatmullRomCurve3(points.map(p=>new T.Vector3(...p as [number,number,number])));
@@ -186,6 +187,7 @@ export function createCharacter(kit:ModelKit,id:CharacterId):Figure {
 
 /** Visual-only joint poses. No random numbers, timers or game-rule callbacks. */
 export function animateCharacter(f:Figure,time:number,motion:CharacterMotion='idle',progress=0,reduced=false) {
+  if(f.id==='lvbu')return animatePremiumLubu(f,time,motion,progress,reduced);
   const p=CHARACTERS[f.id];const phase=time*2;const stride=motion==='walk'&&!reduced?Math.sin(progress*Math.PI*4):0;
   const t=T.MathUtils.clamp(progress,0,1);const breathe=reduced?0:Math.sin(phase)*.012;
   f.rig.rotation.set(0,0,0);f.rig.position.y=0;
@@ -206,8 +208,6 @@ export function animateCharacter(f:Figure,time:number,motion:CharacterMotion='id
     if(p.silhouette==='commander'){f.arms[0].rotation.x=-1.1*amount;f.head.rotation.y=-.1*amount;}
     if(p.silhouette==='young'){f.arms[1].position.y+=amount*.22;f.arms[1].rotation.z=.5*amount;}
     if(p.silhouette==='heavy'||p.silhouette==='wild')f.body.rotation.z=Math.sin(t*Math.PI*2)*.045*amount;
-    // Lü Bu's larger shoulder plates stay beside the head when the forearm raises the halberd.
-    if(f.id==='lvbu')f.arms[0].position.y=.69+amount*.035;
     f.body.position.y+=amount*.04;f.eyes.forEach(e=>e.scale.x=1+amount*.04);
     if(motion==='recruit'&&!reduced){f.rig.rotation.y=(1-Math.pow(1-t,3))*Math.PI*2;f.rig.position.y=Math.sin(t*Math.PI)*.055;}
   }

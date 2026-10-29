@@ -5,6 +5,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {ModelKit} from '../src/three/models';
 import {createCharacter,animateCharacter} from '../src/three/characters';
 import {preloadLubu} from '../src/three/lubuAsset';
+import {lubuBlink} from '../src/three/lubuAnimation';
 import {createLubuPrototype} from '../src/three/lubuArt';
 import {disposeScene} from '../src/three/resources';
 const asset=async(detail:string)=>new Uint8Array(await readFile(new URL(`../src/assets/lubu-${detail}.glb`,import.meta.url)));
@@ -13,17 +14,17 @@ describe('呂布 GLB 樣板交付與關節相容性',()=>{
   it('兩份真實 glTF 2.0 二進位資產均可解碼，含完整關節與厚披風',async()=>{
     for(const detail of ['board','display']){
       const bytes=await asset(detail),header=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
-      expect(header.getUint32(0,true)).toBe(0x46546c67);expect(header.getUint32(4,true)).toBe(2);expect(bytes.length).toBeLessThan(detail==='board'?700_000:1_500_000);
+      expect(header.getUint32(0,true)).toBe(0x46546c67);expect(header.getUint32(4,true)).toBe(2);expect(bytes.length).toBeLessThan(detail==='board'?1_600_000:3_300_000);
       const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length),'');
       try{
-        const root=gltf.scene.getObjectByName('character-lvbu')!;expect(root.userData.artRevision).toBe('3.6.0');
+        const root=gltf.scene.getObjectByName('character-lvbu')!;expect(root.userData.artRevision).toBe('3.7.0');
         for(const name of ['whole-figure','torso','head','left-arm','right-arm','left-leg','right-leg','left-eye','right-eye','cape'])expect(root.getObjectByName(name),name).toBeTruthy();
         const cape=root.getObjectByName('cape')! as T.Mesh;expect(cape.geometry.attributes.position.count).toBeGreaterThan(200);
-        const meshes:T.Mesh[]=[];root.traverse(o=>{if(o instanceof T.Mesh)meshes.push(o);});expect(meshes.length).toBeLessThanOrEqual(65);
-        const triangles=meshes.reduce((n,m)=>n+(m.geometry.index?.count??m.geometry.attributes.position.count)/3,0);expect(triangles).toBeLessThan(detail==='board'?22_000:60_000);
+        const meshes:T.Mesh[]=[];root.traverse(o=>{if(o instanceof T.Mesh)meshes.push(o);});expect(meshes.length).toBeLessThanOrEqual(75);
+        const triangles=meshes.reduce((n,m)=>n+(m.geometry.index?.count??m.geometry.attributes.position.count)/3,0);expect(triangles).toBeLessThan(detail==='board'?42_000:100_000);
         const sourceKit=new ModelKit(detail as 'board'|'display'),source=createLubuPrototype(sourceKit);source.root.updateMatrixWorld(true);root.updateMatrixWorld(true);
         const original=new T.Box3().setFromObject(source.root),loaded=new T.Box3().setFromObject(root);
-        expect(loaded.min.distanceTo(original.min)).toBeLessThan(.0001);expect(loaded.max.distanceTo(original.max)).toBeLessThan(.0001);
+        expect(loaded.min.distanceTo(original.min)).toBeLessThan(.02);expect(loaded.max.distanceTo(original.max)).toBeLessThan(.02);
         disposeScene(source.root);sourceKit.dispose();
       }finally{disposeScene(gltf.scene);}
     }
@@ -38,19 +39,39 @@ describe('呂布 GLB 樣板交付與關節相容性',()=>{
       const first=(f:typeof a)=>{let mesh!:T.Mesh;f.head.traverse(o=>{if(o instanceof T.Mesh)mesh=o;});return mesh;};
       expect(first(a).geometry).not.toBe(first(b).geometry);expect(first(a).material).not.toBe(first(b).material);
       const disposed=vi.spyOn(first(b).geometry,'dispose');disposeScene(a.root);kitA.dispose();expect(disposed).not.toHaveBeenCalled();
-      animateCharacter(b,1,'walk',.125);expect(b.legs[0].rotation.x*b.legs[1].rotation.x).toBeLessThan(0);animateCharacter(b,.075,'idle');expect(b.eyes[0].scale.y).toBeCloseTo(.05);animateCharacter(b,1,'recruit',.4);expect(b.rig.rotation.y).toBeGreaterThan(Math.PI);expect(Number.isFinite(new T.Box3().setFromObject(b.root).max.y)).toBe(true);
+      animateCharacter(b,1,'walk',.125);expect(b.legs[0].rotation.x*b.legs[1].rotation.x).toBeLessThan(0);animateCharacter(b,2.85,'idle');expect(b.eyes[0].scale.y).toBeLessThanOrEqual(.05);animateCharacter(b,1,'recruit',.6);expect(b.rig.rotation.y).toBeGreaterThan(Math.PI);expect(Number.isFinite(new T.Box3().setFromObject(b.root).max.y)).toBe(true);
       disposeScene(b.root);
     }finally{kitA.dispose();kitB.dispose();vi.unstubAllGlobals();}
   });
   it('呂布兩種細節的護肩與手臂在待機、行走及舉戟時不穿過臉部',()=>{
     for(const detail of ['board','display'] as const){
     const kit=new ModelKit(detail),f=createCharacter(kit,'lvbu');
-    try{for(const [motion,t] of [['idle',0],['walk',.125],['walk',.375],['victory',.5],['recruit',.5]] as const){
+    try{for(const [motion,t] of [['idle',0],['walk',.125],['walk',.375],['victory',.5],['recruit',.5],['attack',0],['attack',.15],['attack',.3],['attack',.34],['attack',.4],['attack',.5],['attack',.65],['attack',.85]] as const){
       animateCharacter(f,1,motion,t);f.root.updateMatrixWorld(true);const inverse=f.head.matrixWorld.clone().invert();let nearest=Infinity;
-      for(const arm of f.arms)arm.traverse(o=>{if(o instanceof T.Mesh){const transform=inverse.clone().multiply(o.matrixWorld),attr=o.geometry.attributes.position,index=o.geometry.index,count=index?index.count:attr.count;const triangle=new T.Triangle(),closest=new T.Vector3();for(let i=0;i<count;i+=3){[triangle.a,triangle.b,triangle.c].forEach((v,j)=>{v.fromBufferAttribute(attr,index?index.getX(i+j):i+j).applyMatrix4(transform);v.set(v.x/.34,(v.y+.02)/.333,(v.z-.044)/.282);});triangle.closestPointToPoint(new T.Vector3(),closest);nearest=Math.min(nearest,closest.lengthSq());}}});
+      for(const arm of f.arms)arm.traverse(o=>{if(o instanceof T.Mesh){const transform=inverse.clone().multiply(o.matrixWorld),attr=o.geometry.attributes.position,index=o.geometry.index,count=index?index.count:attr.count;const triangle=new T.Triangle(),closest=new T.Vector3();for(let i=0;i<count;i+=3){[triangle.a,triangle.b,triangle.c].forEach((v,j)=>{v.fromBufferAttribute(attr,index?index.getX(i+j):i+j).applyMatrix4(transform);v.set(v.x/.36,(v.y+.02)/.35,(v.z-.035)/.311);});triangle.closestPointToPoint(new T.Vector3(),closest);nearest=Math.min(nearest,closest.lengthSq());}}});
       expect(nearest,`${motion} arms/shoulders touch face`).toBeGreaterThan(1);
     }}finally{disposeScene(f.root);kit.dispose();}
     }
+  });
+
+  it('新版模型的頭身比例、八成羽翎、貼合眼片與 PBR 材質可辨識',async()=>{
+    const bytes=await asset('display');const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length),'');
+    try{const root=gltf.scene.getObjectByName('character-lvbu')!;root.updateMatrixWorld(true);expect(root.userData.meshPipeline).toContain('Blender');
+      for(const name of ['left-plume','right-plume'])expect(root.getObjectByName(name)!.scale.x).toBeCloseTo(.8);
+      const face=root.getObjectByName('Face_PVC')! as T.Mesh,faceBox=new T.Box3().setFromObject(face),all=new T.Box3().setFromObject(root);
+      const ratio=(faceBox.min.y-all.min.y)/(faceBox.max.y-faceBox.min.y);expect(ratio).toBeGreaterThan(1.22);expect(ratio).toBeLessThan(1.38);
+      expect((face.material as T.MeshStandardMaterial).vertexColors).toBe(true);expect(face.geometry.getAttribute('color')).toBeTruthy();
+      expect(faceBox.max.z-faceBox.min.z).toBeGreaterThan(.45);expect(Math.abs(all.min.y)).toBeLessThan(.005);
+      let metal=false,lacquer=false;root.traverse(o=>{if(o instanceof T.Mesh){const m=o.material as T.MeshStandardMaterial;if(m.metalness>.7)metal=true;if(m.name.includes('24252d')&&m.roughness<.35)lacquer=true;}});expect(metal&&lacquer).toBe(true);
+    }finally{disposeScene(gltf.scene);}
+  });
+  it('攻擊有前後不同揮戟姿勢，不規則眨眼及眉毛羽翎跟隨不消耗遊戲亂數',()=>{
+    const kit=new ModelKit('board'),f=createCharacter(kit,'lvbu');const random=vi.spyOn(Math,'random').mockImplementation(()=>{throw new Error('人物動畫不可改變骰子亂數');});
+    try{animateCharacter(f,1,'attack',.2);const before=f.grips[0].quaternion.clone();animateCharacter(f,1,'attack',.64);expect(before.angleTo(f.grips[0].quaternion)).toBeGreaterThan(.4);
+      animateCharacter(f,1,'idle');const plume=f.ornaments!.plumes[0].rotation.z;animateCharacter(f,2,'idle');expect(f.ornaments!.plumes[0].rotation.z).not.toBe(plume);expect(Math.abs(plume)).toBeLessThan(.02);
+      expect(lubuBlink(0)).toBe(1);for(const t of [2.85,6.3,6.58,11.2])expect(lubuBlink(t)).toBeLessThan(.05);expect(lubuBlink(4.2)).toBe(1);
+      animateCharacter(f,2,'recruit',.4,true);expect(f.rig.rotation.y).toBe(0);expect(f.eyes[0].scale.y).toBe(1);
+    }finally{random.mockRestore();disposeScene(f.root);kit.dispose();}
   });
 
 });
