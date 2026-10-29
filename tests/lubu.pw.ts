@@ -8,7 +8,7 @@ test('呂布真實 GLB、三視圖、臉部特寫及五種動作；反覆開關�
   const errors:string[]=[],requests:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.url().includes('lubu-')&&r.url().endsWith('.glb')){expect(r.status()).toBe(200);requests.push(r.url());}});
   await seed(page);const saved=await page.evaluate(key=>localStorage.getItem(key),SAVE_KEY);const canvas=await open(page);
   await expect.poll(async()=>JSON.parse((await canvas.getAttribute('data-pose'))!).source).toBe('glb');
-  await expect.poll(async()=>JSON.parse((await canvas.getAttribute('data-pose'))!).revision).toBe('3.7.0');
+  await expect.poll(async()=>JSON.parse((await canvas.getAttribute('data-pose'))!).revision).toBe('3.8.0');
   for(const label of ['正面','左側面','背面','臉部特寫']){const before=JSON.parse((await canvas.getAttribute('data-pose'))!).camera;await page.getByRole('button',{name:label,exact:true}).click();await expect.poll(async()=>JSON.parse((await canvas.getAttribute('data-pose'))!).camera).not.toEqual(before);}
   await page.getByRole('button',{name:'重設公仔視角'}).click();
   await page.getByRole('button',{name:'行走',exact:true}).click();await expect(canvas).toHaveAttribute('data-motion','walk');await expect.poll(async()=>{const legs=JSON.parse((await canvas.getAttribute('data-pose'))!).legs;return legs[0]*legs[1];}).toBeLessThan(-.01);
@@ -35,6 +35,6 @@ test('呂布 GLB 下載失敗時明示同款曲面備援，仍能返回原棋局
 
 
 test('拒絕帶有舊版標記的 GLB，顯示新版備援而非靜默使用舊快取',async({page})=>{
-  await page.route('**/lubu-*.glb',async route=>{const response=await route.fetch(),body=await response.body(),stale=Buffer.from(body);const at=stale.indexOf('3.7.0');expect(at).toBeGreaterThan(0);stale.write('3.6.0',at);await route.fulfill({response,body:stale});});
-  await seed(page);const canvas=await open(page);await expect(page.getByText('模型檔暫時無法載入或版本不符，改用新版曲面備援（細節較低）。')).toBeVisible();await expect.poll(async()=>JSON.parse((await canvas.getAttribute('data-pose'))!).source).toBe('authored-surfaces');await expect.poll(async()=>JSON.parse((await canvas.getAttribute('data-pose'))!).revision).toBe('3.7.0');await page.getByRole('button',{name:'返回棋局'}).click();await expect(page.getByRole('button',{name:'擲骰子，出發！'})).toBeEnabled();
+  await page.route('**/lubu-*.glb',async route=>{const response=await route.fetch(),body=await response.body(),stale=Buffer.from(body);const at=stale.indexOf('3.8.0');expect(at).toBeGreaterThan(0);stale.write('3.7.0',at);await route.fulfill({response,body:stale});});
+  await seed(page);const canvas=await open(page);await expect(page.getByText('模型檔暫時無法載入或版本不符，改用新版曲面備援（細節較低）。')).toBeVisible();await expect.poll(async()=>JSON.parse((await canvas.getAttribute('data-pose'))!).source).toBe('authored-surfaces');await expect.poll(async()=>JSON.parse((await canvas.getAttribute('data-pose'))!).revision).toBe('3.8.0');await page.getByRole('button',{name:'返回棋局'}).click();await expect(page.getByRole('button',{name:'擲骰子，出發！'})).toBeEnabled();
 });

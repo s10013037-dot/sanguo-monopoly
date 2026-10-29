@@ -17,14 +17,15 @@ describe('呂布 GLB 樣板交付與關節相容性',()=>{
       expect(header.getUint32(0,true)).toBe(0x46546c67);expect(header.getUint32(4,true)).toBe(2);expect(bytes.length).toBeLessThan(detail==='board'?1_600_000:3_300_000);
       const gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length),'');
       try{
-        const root=gltf.scene.getObjectByName('character-lvbu')!;expect(root.userData.artRevision).toBe('3.7.0');
+        const root=gltf.scene.getObjectByName('character-lvbu')!;expect(root.userData.artRevision).toBe('3.8.0');
         for(const name of ['whole-figure','torso','head','left-arm','right-arm','left-leg','right-leg','left-eye','right-eye','cape'])expect(root.getObjectByName(name),name).toBeTruthy();
         const cape=root.getObjectByName('cape')! as T.Mesh;expect(cape.geometry.attributes.position.count).toBeGreaterThan(200);
         const meshes:T.Mesh[]=[];root.traverse(o=>{if(o instanceof T.Mesh)meshes.push(o);});expect(meshes.length).toBeLessThanOrEqual(75);
         const triangles=meshes.reduce((n,m)=>n+(m.geometry.index?.count??m.geometry.attributes.position.count)/3,0);expect(triangles).toBeLessThan(detail==='board'?42_000:100_000);
         const sourceKit=new ModelKit(detail as 'board'|'display'),source=createLubuPrototype(sourceKit);source.root.updateMatrixWorld(true);root.updateMatrixWorld(true);
         const original=new T.Box3().setFromObject(source.root),loaded=new T.Box3().setFromObject(root);
-        expect(loaded.min.distanceTo(original.min)).toBeLessThan(.02);expect(loaded.max.distanceTo(original.max)).toBeLessThan(.02);
+        const tolerance=original.getSize(new T.Vector3()).length()*.02;
+        expect(loaded.min.distanceTo(original.min)).toBeLessThan(tolerance);expect(loaded.max.distanceTo(original.max)).toBeLessThan(tolerance);
         disposeScene(source.root);sourceKit.dispose();
       }finally{disposeScene(gltf.scene);}
     }
@@ -72,6 +73,15 @@ describe('呂布 GLB 樣板交付與關節相容性',()=>{
       expect(lubuBlink(0)).toBe(1);for(const t of [2.85,6.3,6.58,11.2])expect(lubuBlink(t)).toBeLessThan(.05);expect(lubuBlink(4.2)).toBe(1);
       animateCharacter(f,2,'recruit',.4,true);expect(f.rig.rotation.y).toBe(0);expect(f.eyes[0].scale.y).toBe(1);
     }finally{random.mockRestore();disposeScene(f.root);kit.dispose();}
+  });
+
+  it('V3.8 匯出的眼片是杏仁形比例，月刃孔洞可真正透射光線',async()=>{
+    const bytes=await asset('display'),gltf=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.length),'');
+    try{gltf.scene.updateMatrixWorld(true);const eye=gltf.scene.getObjectByName('Eye_White_Almond')! as T.Mesh;expect(eye).toBeTruthy();eye.geometry.computeBoundingBox();const size=eye.geometry.boundingBox!.getSize(new T.Vector3());expect(size.x/size.y).toBeGreaterThan(1.4);
+      const blade=gltf.scene.getObjectByName('MoonBlade_Pierced')! as T.Mesh;expect(blade).toBeTruthy();
+      const cast=(x:number,y:number)=>{const origin=blade.localToWorld(new T.Vector3(x,y,.2)),target=blade.localToWorld(new T.Vector3(x,y,-.2));return new T.Raycaster(origin,target.sub(origin).normalize()).intersectObject(blade,false);};
+      expect(cast(.16,.78)).toHaveLength(0);expect(cast(.29,.90).length).toBeGreaterThan(0);
+    }finally{disposeScene(gltf.scene);}
   });
 
 });

@@ -1,7 +1,7 @@
 /** Rebuild the project's own articulated GLBs; no image conversion or external model downloads. */
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,writeFile,copyFile} from 'node:fs/promises';
 import {mergeVertices} from 'three/addons/utils/BufferGeometryUtils.js';
 import {GLTFExporter} from 'three/addons/exporters/GLTFExporter.js';
 import {createLubuPrototype} from '../src/three/lubuArt.ts';
@@ -25,4 +25,10 @@ for(const detail of ['board','display']){
   }finally{disposeScene(figure.root);kit.dispose();}
 }
 
-execFileSync(process.env.BLENDER_PATH||'blender',['--background','--factory-startup','--python-exit-code','1','--python',fileURLToPath(new URL('./polish-lubu.py',import.meta.url)),'--','--input-dir',fileURLToPath(rawDir),'--output-dir',fileURLToPath(new URL('../src/assets/',import.meta.url)),'--report',fileURLToPath(new URL('../docs/v3-7/model-build.json',import.meta.url))],{stdio:'inherit'});
+const finishedDir=new URL('./finished/',rawDir);
+await mkdir(finishedDir,{recursive:true});
+execFileSync(process.env.BLENDER_PATH||'blender',['--background','--factory-startup','--python-exit-code','1','--python',fileURLToPath(new URL('./polish-lubu.py',import.meta.url)),'--','--input-dir',fileURLToPath(rawDir),'--output-dir',fileURLToPath(finishedDir),'--report',fileURLToPath(new URL('model-build.json',finishedDir))],{stdio:'inherit'});
+
+// Publish both LODs only after Blender finished every budget and validation check.
+for(const detail of ['board','display'])await copyFile(new URL(`lubu-${detail}.glb`,finishedDir),new URL(`../src/assets/lubu-${detail}.glb`,import.meta.url));
+await copyFile(new URL('model-build.json',finishedDir),new URL('../docs/v3-8/model-build.json',import.meta.url));

@@ -1,0 +1,21 @@
+{
+  "revision": "3.8.0",
+  "tool": "Blender 4.3.2",
+  "manualSculpt": false,
+  "assets": {
+    "board": {
+      "file": "lubu-board.glb",
+      "bytes": 1212376,
+      "triangles": 40634,
+      "meshObjects": 71,
+      "sha256": "38610fd203166b2c4d82c9bb366cfa3b8580b68f6e41c53d1883daed26908946"
+    },
+    "display": {
+      "file": "lubu-display.glb",
+      "bytes": 2686408,
+      "triangles": 99658,
+      "meshObjects": 72,
+      "sha256": "61cfa43a10bc47facfa099cfa41ab3299d4499ad92cfe3b760508e5044799eed"
+    }
+  }
+}
